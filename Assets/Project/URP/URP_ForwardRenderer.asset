@@ -1,0 +1,48 @@
+﻿%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 4800000, guid: d636d2e8b9bd94d449cd9c3f1b4cf1e5, type: 3}
+  m_Name: URP_ForwardRenderer
+  m_EditorClassIdentifier: 
+  m_DepthTextureMode: 0
+  m_CameraDepthTexture: 0
+  m_CameraDepth: 0
+  postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
+  xrSystemData: {fileID: 11400000, guid: 60e1543aaef3f3b448d6e7d7cf5d78e5, type: 2}
+  shaders:
+    autodeskInteractive: {fileID: 4800000, guid: 0d71930a7b4d2404c95d4ad7e0e4f5b6, type: 3}
+    autodeskInteractiveTransparent: {fileID: 4800000, guid: 63c9f9f6e6f8b4e43b06ea1c5c8d5a00, type: 3}
+    autodeskInteractiveMasked: {fileID: 4800000, guid: a8e9d4ad7c3f4c14b9e5f6b8a7d3e2c1, type: 3}
+    terrainDetailLit: {fileID: 4800000, guid: 0e4e8f9a5c9f0b145a7f6b8c2d1e3f54, type: 3}
+    terrainDetailGrass: {fileID: 4800000, guid: 6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b, type: 3}
+    terrainDetailGrassBillboard: {fileID: 4800000, guid: 9f8e7d6c5b4a3f2e1d0c8b7a6f5e4d3c, type: 3}
+    speedTree7: {fileID: 4800000, guid: 0f1e2d3c4b5a6978f9e0d1c2b3a4f5e6, type: 3}
+    speedTree7Billboard: {fileID: 4800000, guid: 7e6d5c4b3a2f1e0d9c8b7a6f5e4d3c2b, type: 3}
+    speedTree8: {fileID: 4800000, guid: 1a2b3c4d5e6f7890a1b2c3d4e5f6a7b8, type: 3}
+    speedTree9: {fileID: 4800000, guid: c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4, type: 3}
+  m_OpaqueLayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_TransparentLayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_DefaultStencilState:
+    overrideStencilState: 0
+    stencilCompareFunction: 8
+    passOperation: 0
+    failOperation: 0
+    zFailOperation: 0
+  m_ShadowTransparentReceive: 1
+  m_RenderingMode: 0
+  m_DepthPrimingMode: 0
+  m_CopyDepthMode: 0
+  m_AccurateGbufferNormals: 0
+  m_IntermediateTextureMode: 0

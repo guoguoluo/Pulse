@@ -1,0 +1,21 @@
+﻿%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c007dae3291762e4ca51d933d0bb36ec, type: 3}
+  m_Name: Fragment_05_Finale
+  m_EditorClassIdentifier: 
+  subtitleText: At the end of the corridor... the machine speaks in her voice.
+  audioClip: {fileID: 0}
+  subtitleDuration: 7
+  cooldownSeconds: 0
+  isLastFragment: 1
+  nodeTriggerName: Node_EndOfCorridor
+  fxPreset: glitch_heavy
