@@ -66,8 +66,10 @@ public class PlayerInstrumentController : MonoBehaviour
         TryPickInstrument();
     }
 
-    private void OnResonatePerformed(InputAction.CallbackContext context)
+private void OnResonatePerformed(InputAction.CallbackContext context)
     {
+        // Right mouse button is reserved for conductor mode in this demo.
+        if (context.control.device is Mouse) return;
         PlayEquippedInstrument();
     }
 

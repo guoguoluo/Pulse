@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: ToonGround
-  m_Shader: {fileID: 4800000, guid: 8ea1c88dba03e8740a7e2ebcf41575ad, type: 3}
+  m_Shader: {fileID: 4800000, guid: ee95b46a15210974bbfb26eea13474df, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -30,16 +30,10 @@ Material:
     m_Ints: []
     m_Floats:
     - _AmbientStrength: 0.06
-    - _InteriorCutoff: 0.44
-    - _InteriorStrength: 0
-    - _InteriorWidth: 0.07
     - _LightCutoff: 0.46
-    - _LightSmoothness: 0.085
+    - _LightSmoothness: 0.65
     - _LightStrength: 0.59
-    - _OutlineWidth: 0
     m_Colors:
     - _Color: {r: 0.46, g: 0.61, b: 0.67, a: 1}
-    - _InteriorColor: {r: 0.45, g: 0.49, b: 0.62, a: 1}
-    - _OutlineColor: {r: 0.39, g: 0.42, b: 0.58, a: 0}
     - _ShadowColor: {r: 0.78, g: 0.84, b: 0.9, a: 1}
   m_BuildTextureStacks: []

@@ -10,6 +10,9 @@ public class PlayerController : MonoBehaviour
 {
     [Header("Movement")]
     [SerializeField] private float moveSpeed = 4f;
+    [Tooltip("Degrees per second the astronaut turns toward its movement direction.")]
+    [Min(0f)] [SerializeField] private float turnSpeed = 540f;
+
     [SerializeField] private float gravity = -20f;
     [SerializeField] private float groundedVerticalSpeed = -2f;
     [SerializeField] private float stairSnapForce = 6f;
@@ -73,20 +76,12 @@ public class PlayerController : MonoBehaviour
         inputActions.Dispose();
     }
 
-    private void Start()
+private void Start()
     {
-        if (playerCamera == null)
-            playerCamera = GetComponentInChildren<Camera>();
-
-        if (cameraPivot == null && playerCamera != null)
-            cameraPivot = playerCamera.transform.parent != null ? playerCamera.transform.parent : playerCamera.transform;
-
-        if (cameraPivot != null)
-            cameraPitch = NormalizePitch(cameraPivot.localEulerAngles.x);
-
+        if (playerCamera == null) playerCamera = GetComponentInChildren<Camera>();
+        if (cameraPivot == null && playerCamera != null) cameraPivot = playerCamera.transform.parent;
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
-        suppressNextMouseLook = true;
     }
 
     private void Update()
@@ -105,31 +100,9 @@ public class PlayerController : MonoBehaviour
         lookInput = context.ReadValue<Vector2>();
     }
 
-    private void HandleLook()
+private void HandleLook()
     {
-        if (lookInput.sqrMagnitude < 0.0001f)
-            return;
-
-        bool useGamepad = inputActions.Player["Look"].activeControl != null
-            && inputActions.Player["Look"].activeControl.device is Gamepad;
-
-        if (!useGamepad && suppressNextMouseLook)
-        {
-            suppressNextMouseLook = false;
-            return;
-        }
-
-        float sensitivity = useGamepad ? gamepadSensitivity * Time.deltaTime : mouseSensitivity;
-        float yawDelta = lookInput.x * sensitivity;
-        float pitchDelta = lookInput.y * sensitivity;
-
-        cameraPitch -= pitchDelta;
-        cameraPitch = Mathf.Clamp(cameraPitch, -pitchClamp, pitchClamp);
-
-        transform.Rotate(Vector3.up * yawDelta, Space.World);
-
-        if (cameraPivot != null)
-            cameraPivot.localRotation = Quaternion.Euler(cameraPitch, 0f, 0f);
+        // The PC mouse is reserved for conducting; camera follows the player pivot.
     }
 
     private void HandleMovement()
@@ -148,7 +121,11 @@ public class PlayerController : MonoBehaviour
         IsMoving = desiredMove.sqrMagnitude > 0.001f;
 
         if (IsMoving)
+        {
+            Quaternion facing = Quaternion.LookRotation(desiredMove, Vector3.up);
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, facing, turnSpeed * Time.deltaTime);
             TryStepAssist(desiredMove);
+        }
 
         if (controller.isGrounded)
         {

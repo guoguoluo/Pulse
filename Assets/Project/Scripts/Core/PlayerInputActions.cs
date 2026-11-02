@@ -37,6 +37,11 @@ public class PlayerInputActions : IDisposable
             .With("Down", "<Keyboard>/s")
             .With("Left", "<Keyboard>/a")
             .With("Right", "<Keyboard>/d");
+        move.AddCompositeBinding("2DVector")
+            .With("Up", "<Keyboard>/upArrow")
+            .With("Down", "<Keyboard>/downArrow")
+            .With("Left", "<Keyboard>/leftArrow")
+            .With("Right", "<Keyboard>/rightArrow");
         move.AddBinding("<Gamepad>/leftStick");
 
         look.AddBinding("<Mouse>/delta");
