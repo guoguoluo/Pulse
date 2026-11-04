@@ -30,10 +30,14 @@ public class FirstBeatTimeline : MonoBehaviour
     [SerializeField] private float cueLeadSeconds = 0.65f;
 
     private double startDspTime;
+    private double pausedAtDspTime;
+    private bool isPaused;
+    public bool IsPaused => isPaused;
     private int lastGuideCue = -1;
     private int lastGuideBeat = -1;
     public bool UsesDemoGuide => singleRecording != null && !recordingBeatMarkersVerified;
     public float GuideBarSeconds => beatsPerBar * 60f / Mathf.Max(guideBeatsPerMinute, 1f);
+    public float GuideBeatsPerMinute => guideBeatsPerMinute;
 
     private int lastCue = -1;
     private int lastBeat = -1;
@@ -44,10 +48,34 @@ public class FirstBeatTimeline : MonoBehaviour
     public double StartDspTime => startDspTime;
     public int BeatCount => firstBeatSeconds != null ? firstBeatSeconds.Length : 0;
     public float CueLeadSeconds => cueLeadSeconds;
+    public float GetBarSeconds(int beatId)
+    {
+        if (UsesDemoGuide) return GuideBarSeconds;
+        if (BeatCount < 2) return loopLengthSeconds;
+        int index = Mathf.Abs(beatId) % BeatCount;
+        if (index < BeatCount - 1) return firstBeatSeconds[index + 1] - firstBeatSeconds[index];
+        return singleRecording != null
+            ? firstBeatSeconds[index] - firstBeatSeconds[index - 1]
+            : loopLengthSeconds - firstBeatSeconds[index] + firstBeatSeconds[0];
+    }
     public float[] FirstBeatOffsets => firstBeatSeconds;
     public float LoopLengthSeconds => loopLengthSeconds;
     public int UnlockedLayer => unlockedLayer;
     public bool HasLicensedClips => pianoPlaceholder != null || stringsPlaceholder != null || windsPlaceholder != null;
+    public void SetPaused(bool paused)
+    {
+        if (paused == isPaused) return;
+        if (paused)
+        {
+            pausedAtDspTime = AudioSettings.dspTime;
+            isPaused = true;
+        }
+        else
+        {
+            startDspTime += AudioSettings.dspTime - pausedAtDspTime;
+            isPaused = false;
+        }
+    }
 
     private void OnValidate()
     {
@@ -95,6 +123,7 @@ private void Configure(AudioSource source, AudioClip clip, bool audible)
 
 private void Update()
     {
+        if (isPaused) return;
         if (UsesDemoGuide)
         {
             UpdateDemoGuide();
@@ -158,6 +187,7 @@ public bool TryMatch(double dspTime, float window, out int beatId)
     {
         beatId = -1;
         offsetSeconds = float.PositiveInfinity;
+        if (isPaused) return false;
         if (UsesDemoGuide)
         {
             double first = startDspTime - leadInSeconds + guideLeadInSeconds;

@@ -4,5 +4,8 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Project/Scenes/ToonStudy.unity
+    guid: 6161ba604cf02ad409e20f220479401d
   m_configObjects: {}

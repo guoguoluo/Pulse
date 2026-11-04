@@ -10,7 +10,6 @@ public class ConductorDemo : MonoBehaviour
     [SerializeField] private ConductorWorldFeedback feedback;
     [SerializeField] private RisingStaircase staircase;
     [SerializeField] private Transform player;
-    [SerializeField] private Transform resonanceNode;
 
     [Header("First-Beat Judgement (seconds)")]
     [Tooltip("Early/late tolerance for Perfect.")]
@@ -24,17 +23,31 @@ public class ConductorDemo : MonoBehaviour
     [Tooltip("Maximum Good tolerance after prolonged inactivity.")]
     [Min(0f)] [SerializeField] private float maxAssistWindow = 0.48f;
 
-    [Header("Progression")]
+    [Header("Persistent Light Path")]
     [Min(1)] [SerializeField] private int pathSegments = 6;
-    [Min(0f)] [SerializeField] private float nodeRadius = 4f;
+
+    [Header("Staircase Raise Conditions")]
+    [Tooltip("Horizontal distance in world units from StaircaseRoot. Set 0 to require standing at the stairs.")]
+    [Min(0f)] [SerializeField] private float staircaseTriggerDistance = 50f;
+    [Tooltip("Motion=1, OffBeat=2, Good=3, Great=4, Perfect=5. Only matched first-beat strokes can count.")]
+    [SerializeField] private ConductorGestureRating staircaseMinimumRating = ConductorGestureRating.Good;
+    [Tooltip("Consecutive qualifying first beats. A missed beat, off-beat stroke, low rating, or leaving range resets only this streak.")]
+    [Min(1)] [SerializeField] private int staircaseRequiredHits = 3;
 
     private ConductorBlackout blackout;
     private int progress;
+    private int staircaseHits;
     private int lastHitBeat = -1;
+    private int lastStaircaseBeat = -1;
+    private int pendingBeat = -1;
+    private double pendingBeatDeadline;
+    private bool pendingBeatQualified;
+    private bool pendingBeatIsInRange;
     private double lastProgressTime;
     private bool completed;
 
     public int Progress => progress;
+    public int StaircaseHits => staircaseHits;
     public bool Completed => completed;
     public ConductorGestureRating LastRating { get; private set; }
     public float LastBeatOffsetSeconds { get; private set; }
@@ -46,7 +59,6 @@ public class ConductorDemo : MonoBehaviour
         if (feedback == null) feedback = FindFirstObjectByType<ConductorWorldFeedback>();
         if (staircase == null) staircase = FindFirstObjectByType<RisingStaircase>();
         if (player == null) { var controller = FindFirstObjectByType<PlayerController>(); if (controller != null) player = controller.transform; }
-        if (resonanceNode == null && staircase != null) resonanceNode = staircase.transform;
         blackout = FindFirstObjectByType<ConductorBlackout>();
     }
 
@@ -83,23 +95,36 @@ public class ConductorDemo : MonoBehaviour
         greatWindowSeconds = Mathf.Max(greatWindowSeconds, perfectWindowSeconds);
         hitWindowSeconds = Mathf.Max(hitWindowSeconds, greatWindowSeconds);
         maxAssistWindow = Mathf.Max(maxAssistWindow, hitWindowSeconds);
+        staircaseRequiredHits = Mathf.Max(1, staircaseRequiredHits);
+        if (staircaseMinimumRating < ConductorGestureRating.Good)
+            staircaseMinimumRating = ConductorGestureRating.Good;
     }
 
     private void Start() { lastProgressTime = AudioSettings.dspTime; }
 
     private void Update()
     {
+        if (timeline != null && timeline.IsPaused) return;
         if (completed) return;
         double idle = AudioSettings.dspTime - lastProgressTime;
         feedback?.SetAssistance(Mathf.Clamp01((float)((idle - idleGraceSeconds) / Mathf.Max(0.1f, idleGraceSeconds))));
-        if (progress >= pathSegments && player != null && resonanceNode != null)
+        if (!IsNearStaircase())
         {
-            Vector3 a = player.position; Vector3 b = resonanceNode.position; a.y = b.y = 0f;
-            if (Vector3.Distance(a, b) <= nodeRadius) Complete();
+            staircaseHits = 0;
+            lastStaircaseBeat = -1;
+        }
+        if (pendingBeat >= 0 && AudioSettings.dspTime > pendingBeatDeadline)
+        {
+            if (!pendingBeatQualified && pendingBeatIsInRange && lastHitBeat != pendingBeat)
+            {
+                staircaseHits = 0;
+                lastStaircaseBeat = -1;
+            }
+            pendingBeat = -1;
         }
     }
 
-private void OnMotion()
+    private void OnMotion()
     {
         blackout?.ShowRating(ConductorGestureRating.Motion);
         feedback?.ShowRating(ConductorGestureRating.Motion);
@@ -107,9 +132,23 @@ private void OnMotion()
     }
 
     private void OnCue(int id) { feedback?.CueMeteor(); }
-    private void OnFirstBeat(int id) { feedback?.StrikeMeteor(); }
+    private void OnFirstBeat(int id)
+    {
+        feedback?.StrikeMeteor();
+        if (completed) return;
+        if (pendingBeat >= 0 && pendingBeat != id && !pendingBeatQualified && pendingBeatIsInRange
+            && lastHitBeat != pendingBeat)
+        {
+            staircaseHits = 0;
+            lastStaircaseBeat = -1;
+        }
+        pendingBeat = id;
+        pendingBeatQualified = id == lastHitBeat;
+        pendingBeatIsInRange = IsNearStaircase();
+        pendingBeatDeadline = AudioSettings.dspTime + maxAssistWindow;
+    }
 
-private void OnDownstroke(double dspTime)
+    private void OnDownstroke(double dspTime)
     {
         if (completed || timeline == null)
         {
@@ -136,10 +175,36 @@ private void OnDownstroke(double dspTime)
             blackout?.SetPermanentSegments(progress);
             if (progress >= 2) timeline.UnlockLayer(1);
             if (progress >= 4) timeline.UnlockLayer(2);
+            if (rating >= staircaseMinimumRating && IsNearStaircase())
+            {
+                staircaseHits = lastStaircaseBeat < 0 || beatId == lastStaircaseBeat + 1
+                    ? Mathf.Min(staircaseRequiredHits, staircaseHits + 1) : 1;
+                lastStaircaseBeat = beatId;
+                if (pendingBeat == beatId) pendingBeatQualified = true;
+            }
+            else
+            {
+                staircaseHits = 0;
+                lastStaircaseBeat = -1;
+            }
+            if (staircaseHits >= staircaseRequiredHits) Complete();
+        }
+        else if (!hit)
+        {
+            staircaseHits = 0;
+            lastStaircaseBeat = -1;
         }
         LastRating = rating;
         blackout?.ShowRating(rating);
         feedback?.ShowRating(rating);
+    }
+
+    private bool IsNearStaircase()
+    {
+        if (player == null || staircase == null) return false;
+        Vector3 delta = player.position - staircase.transform.position;
+        delta.y = 0f;
+        return delta.sqrMagnitude <= staircaseTriggerDistance * staircaseTriggerDistance;
     }
 
     private void Complete()

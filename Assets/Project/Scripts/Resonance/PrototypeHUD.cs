@@ -17,6 +17,7 @@ public class PrototypeHUD : MonoBehaviour
 
     [SerializeField] private PlayerInstrumentController instrumentController;
     [SerializeField] private ResonanceMatcher resonanceMatcher;
+    [SerializeField] private TextConfig textConfig;
 
     [SerializeField] private string initialPrompt = "WASD Move | Mouse Look | F Pick | RMB Resonate";
     [SerializeField] private string noInstrumentPrompt = "Move closer to the object.";
@@ -33,6 +34,7 @@ public class PrototypeHUD : MonoBehaviour
 
     private void Start()
     {
+        if (textConfig == null) textConfig = Resources.Load<TextConfig>("TextConfig");
         if (instrumentController == null)
             instrumentController = FindFirstObjectByType<PlayerInstrumentController>();
         if (resonanceMatcher == null)
@@ -52,7 +54,7 @@ public class PrototypeHUD : MonoBehaviour
                 && Time.time <= instrumentHideTime;
             instrumentText.gameObject.SetActive(showInstrument);
             if (showInstrument)
-                instrumentText.text = "Instrument: " + instrumentController.EquippedInstrument.InstrumentName;
+                instrumentText.text = string.Format(Text("hud.instrument"), instrumentController.EquippedInstrument.InstrumentName);
         }
 
         if (resonanceText != null)
@@ -65,9 +67,9 @@ public class PrototypeHUD : MonoBehaviour
             if (showResonance)
             {
                 if (resonanceMatcher.HasSucceeded)
-                    resonanceText.text = "Resonance: Complete";
+                    resonanceText.text = Text("hud.complete");
                 else
-                    resonanceText.text = "Resonance: " + Mathf.RoundToInt(resonanceMatcher.Progress01 * 100f) + "%";
+                    resonanceText.text = string.Format(Text("hud.progress"), Mathf.RoundToInt(resonanceMatcher.Progress01 * 100f));
             }
         }
 
@@ -77,18 +79,20 @@ public class PrototypeHUD : MonoBehaviour
 
             if (Time.time <= initialPromptHideTime)
             {
-                promptText.text = initialPrompt;
+                promptText.text = Text("hud.initial");
                 showPrompt = true;
             }
             else if (Time.time <= pickupPromptHideTime)
             {
-                promptText.text = withInstrumentPrompt;
+                promptText.text = Text("hud.withInstrument");
                 showPrompt = true;
             }
 
             promptText.gameObject.SetActive(showPrompt);
         }
     }
+
+    private string Text(string key) { return textConfig != null ? textConfig.Get(key) : key; }
 
     private void TrackMilestones()
     {

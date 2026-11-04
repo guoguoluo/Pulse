@@ -7,6 +7,7 @@ using UnityEngine;
 public class GoalFeedbackPresenter : MonoBehaviour
 {
     [SerializeField] private TextMeshProUGUI targetText;
+    [SerializeField] private TextConfig textConfig;
     [SerializeField] private string message = "You reached the high place. The pulse accepts you.";
     [SerializeField] private float displayDuration = 5f;
 
@@ -28,7 +29,8 @@ public class GoalFeedbackPresenter : MonoBehaviour
     {
         if (targetText != null)
         {
-            targetText.text = message;
+            if (textConfig == null) textConfig = Resources.Load<TextConfig>("TextConfig");
+            targetText.text = textConfig != null ? textConfig.Get("goal.reached") : message;
             targetText.gameObject.SetActive(true);
             hideTime = Time.time + displayDuration;
         }

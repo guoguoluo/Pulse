@@ -24,6 +24,7 @@ public class DownstrokeInput : MonoBehaviour
     private float lastStrokeTime = -100f;
     private float lastMotionTime = -100f;
     private bool armed = true;
+    private JournalReader journalReader;
 
 
     public event Action<double> Downstroke;
@@ -31,6 +32,8 @@ public class DownstrokeInput : MonoBehaviour
 
 private void Update()
     {
+        if (journalReader == null) journalReader = FindFirstObjectByType<JournalReader>();
+        if (journalReader != null && journalReader.IsOpen) return;
         if (Mouse.current == null) return;
         float dy = Mouse.current.delta.ReadValue().y;
         float dt = Mathf.Max(Time.unscaledDeltaTime, 0.001f);

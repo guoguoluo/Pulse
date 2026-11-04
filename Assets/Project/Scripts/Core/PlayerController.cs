@@ -37,6 +37,13 @@ public class PlayerController : MonoBehaviour
     private float cameraPitch;
     private float verticalVelocity;
     private bool suppressNextMouseLook;
+    private bool journalOpen;
+
+    public void SetJournalOpen(bool open)
+    {
+        journalOpen = open;
+        if (open) moveInput = Vector2.zero;
+    }
 
     public bool IsMoving { get; private set; }
     public Vector3 PlanarVelocity { get; private set; }
@@ -80,19 +87,29 @@ private void Start()
     {
         if (playerCamera == null) playerCamera = GetComponentInChildren<Camera>();
         if (cameraPivot == null && playerCamera != null) cameraPivot = playerCamera.transform.parent;
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        if (!journalOpen)
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
     }
 
     private void Update()
     {
+        if (journalOpen)
+        {
+            moveInput = Vector2.zero;
+            IsMoving = false;
+            PlanarVelocity = Vector3.zero;
+            return;
+        }
         HandleLook();
         HandleMovement();
     }
 
     private void OnMove(InputAction.CallbackContext context)
     {
-        moveInput = context.ReadValue<Vector2>();
+        if (!journalOpen) moveInput = context.ReadValue<Vector2>();
     }
 
     private void OnLook(InputAction.CallbackContext context)

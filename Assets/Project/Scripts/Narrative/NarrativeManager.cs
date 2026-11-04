@@ -20,6 +20,7 @@ public class NarrativeManager : MonoBehaviour
 
     [Header("Display")]
     [SerializeField] private TextMeshPro subtitleDisplay;
+    [SerializeField] private TextConfig textConfig;
     [SerializeField] private CanvasGroup subtitleCanvasGroup;
     [Tooltip("Duration for subtitle fade in/out (seconds)")]
     [SerializeField] private float subtitleFadeDuration = 0.8f;
@@ -85,7 +86,9 @@ public class NarrativeManager : MonoBehaviour
 
         if (subtitleDisplay != null)
         {
-            subtitleDisplay.text = fragment.SubtitleText;
+            if (textConfig == null) textConfig = Resources.Load<TextConfig>("TextConfig");
+            subtitleDisplay.text = textConfig != null
+                ? textConfig.Get($"narrative.{currentFragmentIndex + 1:00}") : fragment.SubtitleText;
             yield return StartCoroutine(FadeSubtitle(0f, 1f));
         }
 

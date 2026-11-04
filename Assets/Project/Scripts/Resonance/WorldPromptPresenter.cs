@@ -8,6 +8,8 @@ public class WorldPromptPresenter : MonoBehaviour
 {
     [SerializeField] private Canvas promptCanvas;
     [SerializeField] private TextMeshProUGUI promptText;
+    [SerializeField] private TextConfig textConfig;
+    [SerializeField] private string textKey = "world.pickup";
     [SerializeField] private string displayText = "F";
     [SerializeField] private Vector3 billboardOffset = new Vector3(0f, 1.2f, 0f);
 
@@ -21,7 +23,10 @@ public class WorldPromptPresenter : MonoBehaviour
             promptText = GetComponentInChildren<TextMeshProUGUI>(true);
 
         if (promptText != null)
-            promptText.text = displayText;
+        {
+            if (textConfig == null) textConfig = Resources.Load<TextConfig>("TextConfig");
+            promptText.text = textConfig != null ? textConfig.Get(textKey) : displayText;
+        }
 
         SetVisible(false);
     }

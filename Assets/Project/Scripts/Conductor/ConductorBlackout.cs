@@ -1,8 +1,6 @@
 using UnityEngine;
 
 [RequireComponent(typeof(Camera))]
-[RequireComponent(typeof(Camera))]
-[RequireComponent(typeof(Camera))]
 public class ConductorBlackout : MonoBehaviour
 {
     [Header("Initial Darkness")]
@@ -46,6 +44,7 @@ public class ConductorBlackout : MonoBehaviour
 
     public bool HasRevealed => hasMoved;
     public float CurrentDarkness => currentDarkness;
+    public float CurrentVisibility => 1f - currentDarkness;
 
     private void Awake()
     {

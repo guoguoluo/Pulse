@@ -18,7 +18,10 @@ public class RisingStaircase : MonoBehaviour
     [SerializeField] private Color successColor = new Color(0.7f, 0.95f, 1f, 1f);
     [SerializeField] private UnityEvent onRaised;
 
-    private bool raised;
+    public bool IsRaised => raised;
+
+    
+private bool raised;
     private int raiseTriggerHash;
 
     private void Reset()
