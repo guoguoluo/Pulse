@@ -39,6 +39,7 @@ public class PlayerInstrumentController : MonoBehaviour
 
     private void OnEnable()
     {
+        if (inputActions == null) inputActions = new PlayerInputActions();
         inputActions.Enable();
         inputActions.Player["Pick"].performed += OnPickPerformed;
         inputActions.Player["Resonate"].performed += OnResonatePerformed;
@@ -46,6 +47,7 @@ public class PlayerInstrumentController : MonoBehaviour
 
     private void OnDisable()
     {
+        if (inputActions == null) return;
         inputActions.Player["Pick"].performed -= OnPickPerformed;
         inputActions.Player["Resonate"].performed -= OnResonatePerformed;
         inputActions.Disable();
@@ -53,7 +55,7 @@ public class PlayerInstrumentController : MonoBehaviour
 
     private void OnDestroy()
     {
-        inputActions.Dispose();
+        inputActions?.Dispose();
     }
 
     private void Update()

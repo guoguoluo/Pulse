@@ -20,6 +20,12 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float maxStepAssistHeight = 0.45f;
     [SerializeField] private float stepAssistForwardCheck = 0.4f;
     [SerializeField] private float stepAssistLiftSpeed = 6f;
+    [Header("Fall Recovery")]
+    [Tooltip("Respawn after falling this far below the last safe foothold.")]
+    [Min(1f)] [SerializeField] private float fallRecoveryDistance = 6f;
+    [Tooltip("Keep the checkpoint away from an exposed ledge.")]
+    [Min(0f)] [SerializeField] private float safeGroundRadius = 0.55f;
+    [Min(0f)] [SerializeField] private float safeGroundInterval = 0.15f;
 
     [Header("Look")]
     [SerializeField] private float mouseSensitivity = 0.12f;
@@ -38,6 +44,8 @@ public class PlayerController : MonoBehaviour
     private float verticalVelocity;
     private bool suppressNextMouseLook;
     private bool journalOpen;
+    private Vector3 lastSafePosition;
+    private float lastSafeTime;
 
     public void SetJournalOpen(bool open)
     {
@@ -58,10 +66,12 @@ public class PlayerController : MonoBehaviour
     {
         controller = GetComponent<CharacterController>();
         inputActions = new PlayerInputActions();
+        lastSafePosition = transform.position;
     }
 
     private void OnEnable()
     {
+        if (inputActions == null) inputActions = new PlayerInputActions();
         inputActions.Enable();
         inputActions.Player["Move"].performed += OnMove;
         inputActions.Player["Move"].canceled += OnMove;
@@ -71,6 +81,7 @@ public class PlayerController : MonoBehaviour
 
     private void OnDisable()
     {
+        if (inputActions == null) return;
         inputActions.Player["Move"].performed -= OnMove;
         inputActions.Player["Move"].canceled -= OnMove;
         inputActions.Player["Look"].performed -= OnLook;
@@ -80,7 +91,7 @@ public class PlayerController : MonoBehaviour
 
     private void OnDestroy()
     {
-        inputActions.Dispose();
+        inputActions?.Dispose();
     }
 
 private void Start()
@@ -158,6 +169,31 @@ private void HandleLook()
         PlanarVelocity = new Vector3(motion.x, 0f, motion.z);
         motion.y = verticalVelocity;
         controller.Move(motion * Time.deltaTime);
+        UpdateFallRecovery();
+    }
+
+    private void UpdateFallRecovery()
+    {
+        if (transform.position.y < lastSafePosition.y - fallRecoveryDistance)
+        {
+            controller.enabled = false;
+            transform.position = lastSafePosition;
+            controller.enabled = true;
+            verticalVelocity = 0f;
+            moveInput = Vector2.zero;
+            return;
+        }
+        if (!controller.isGrounded || Time.time - lastSafeTime < safeGroundInterval) return;
+        Vector3 origin = transform.position + Vector3.up * 0.5f;
+        Vector3[] offsets = { Vector3.zero, Vector3.left, Vector3.right, Vector3.forward, Vector3.back };
+        foreach (Vector3 offset in offsets)
+        {
+            if (!Physics.Raycast(origin + offset * safeGroundRadius, Vector3.down, 1.5f,
+                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+                return;
+        }
+        lastSafePosition = transform.position;
+        lastSafeTime = Time.time;
     }
 
     private void TryStepAssist(Vector3 moveDirection)

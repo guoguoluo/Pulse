@@ -7,9 +7,6 @@ public class JournalPickup : MonoBehaviour
     [SerializeField] private JournalArchive archive;
     [SerializeField] private JournalReader reader;
     [SerializeField] private float interactionDistance = 2.5f;
-    [SerializeField] private bool requireConductorPuzzle = true;
-    [SerializeField] private ConductorDemo conductorPuzzle;
-    [SerializeField] private RisingStaircase staircase;
     [SerializeField] private GameObject visual;
 
     private Transform player;
@@ -21,8 +18,6 @@ public class JournalPickup : MonoBehaviour
     {
         if (archive == null) archive = FindFirstObjectByType<JournalArchive>();
         if (reader == null) reader = FindFirstObjectByType<JournalReader>();
-        if (conductorPuzzle == null && requireConductorPuzzle) conductorPuzzle = FindFirstObjectByType<ConductorDemo>();
-        if (staircase == null && requireConductorPuzzle) staircase = FindFirstObjectByType<RisingStaircase>();
         pickupCollider = GetComponent<SphereCollider>();
         pickupCollider.isTrigger = true;
         playerController = FindFirstObjectByType<PlayerController>();
@@ -30,7 +25,7 @@ public class JournalPickup : MonoBehaviour
 
     private void Start()
     {
-        if (archive != null && archive.UnlockedCount > 0) Hide();
+        if (archive != null && archive.IsFragmentCollected(0)) Hide();
     }
 
     private void Update()
@@ -42,21 +37,20 @@ public class JournalPickup : MonoBehaviour
         bool nearby = Vector3.Distance(player.position, pickupCollider.bounds.center) <= interactionDistance;
         if (!nearby)
         {
-            reader.SetPickupAvailable(false);
+            reader.ClearPickupTarget(visual != null ? visual.transform : transform);
             reader.SetFirstFragmentNearby(false);
             return;
         }
-        bool unlocked = !requireConductorPuzzle || (staircase != null && staircase.IsRaised)
-            || (conductorPuzzle != null && conductorPuzzle.Completed);
-        if (reader.IsOpen || !unlocked)
+        if (reader.IsOpen)
         {
-            reader.SetPickupAvailable(false);
-            reader.SetFirstFragmentNearby(!reader.IsOpen);
+            reader.ClearPickupTarget(visual != null ? visual.transform : transform);
+            reader.SetFirstFragmentNearby(false);
             return;
         }
         reader.SetFirstFragmentNearby(false);
+        reader.SetPickupTarget(visual != null ? visual.transform : transform, true);
         reader.SetPickupAvailable(true);
-        if (Keyboard.current != null && Keyboard.current.fKey.wasPressedThisFrame && archive.CollectNext())
+        if (Keyboard.current != null && Keyboard.current.fKey.wasPressedThisFrame && archive.CollectFragment(0))
         {
             Hide();
             reader.ShowAcquired();
@@ -68,7 +62,7 @@ public class JournalPickup : MonoBehaviour
         collectedThisSession = true;
         if (reader != null)
         {
-            reader.SetPickupAvailable(false);
+            reader.ClearPickupTarget(visual != null ? visual.transform : transform);
             reader.SetFirstFragmentNearby(false);
         }
         if (visual != null) visual.SetActive(false);

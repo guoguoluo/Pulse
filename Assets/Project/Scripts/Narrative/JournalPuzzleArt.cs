@@ -19,6 +19,8 @@ public class JournalPuzzleArt : MonoBehaviour
     [SerializeField] private float glowStrength = 1.8f;
     [SerializeField] private float revealSpeed = 2.2f;
     [SerializeField] private float pulseDecay = 1.4f;
+    [SerializeField] private ConductorDemo conductor;
+    [SerializeField] private ConductorTuning tuning;
     private float progress;
     private float target;
     private float pulse;
@@ -28,6 +30,12 @@ public class JournalPuzzleArt : MonoBehaviour
 
     private void Awake()
     {
+        if (conductor == null) conductor = FindFirstObjectByType<ConductorDemo>();
+        if (tuning == null)
+        {
+            var timeline = FindFirstObjectByType<FirstBeatTimeline>();
+            if (timeline != null) tuning = timeline.Tuning;
+        }
         properties = new MaterialPropertyBlock();
         positions = new Vector3[pieces.Length];
         rotations = new Quaternion[pieces.Length];
@@ -54,6 +62,13 @@ public class JournalPuzzleArt : MonoBehaviour
 
     private void Update()
     {
+        if (properties == null) properties = new MaterialPropertyBlock();
+        if (pieces == null || positions == null || rotations == null ||
+            positions.Length != pieces.Length || rotations.Length != pieces.Length)
+            return;
+        float visibility = conductor != null
+            ? Mathf.Clamp01((float)conductor.LightScore / Mathf.Max(1, tuning != null ? tuning.maximumLightScore : 100))
+            : 0f;
         progress = Mathf.MoveTowards(progress, target, Time.deltaTime * revealSpeed);
         pulse = Mathf.MoveTowards(pulse, 0f, Time.deltaTime * pulseDecay);
         for (int i = 0; i < pieces.Length; i++)
@@ -69,10 +84,11 @@ public class JournalPuzzleArt : MonoBehaviour
                 Quaternion.Euler(0f, 0f, Mathf.Sin(Time.time * 1.5f + i * 1.8f) * piece.swayDegrees * local);
             if (piece.renderer == null) continue;
             piece.renderer.GetPropertyBlock(properties);
-            properties.SetColor("_EmissionColor", glowColor * (0.08f + local * glowStrength + pulse * 0.35f));
+            properties.SetColor("_EmissionColor", glowColor *
+                ((0.08f + local * glowStrength + pulse * 0.35f) * visibility));
             piece.renderer.SetPropertyBlock(properties);
         }
         if (accentLight != null)
-            accentLight.intensity = (progress * 0.55f + pulse * 0.16f);
+            accentLight.intensity = (progress * 0.55f + pulse * 0.16f) * visibility;
     }
 }

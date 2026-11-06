@@ -11,6 +11,7 @@ public class JournalPageView : MonoBehaviour
     [SerializeField] private Button previousButton;
     [SerializeField] private Button nextButton;
     [SerializeField] private Button closeButton;
+    [SerializeField] private Button hibernateButton;
 
     private JournalReader reader;
 
@@ -20,9 +21,10 @@ public class JournalPageView : MonoBehaviour
         if (previousButton != null) previousButton.onClick.AddListener(Previous);
         if (nextButton != null) nextButton.onClick.AddListener(Next);
         if (closeButton != null) closeButton.onClick.AddListener(Close);
+        if (hibernateButton != null) hibernateButton.onClick.AddListener(Hibernate);
     }
 
-    public void SetEntry(string title, string body, int index, int total)
+    public void SetEntry(string title, string body, int index, int total, bool allCollected)
     {
         if (titleText != null) titleText.text = title;
         if (bodyText != null) bodyText.text = body;
@@ -30,9 +32,12 @@ public class JournalPageView : MonoBehaviour
         if (bodyScroll != null) bodyScroll.verticalNormalizedPosition = 1f;
         if (previousButton != null) previousButton.interactable = index > 1;
         if (nextButton != null) nextButton.interactable = index < total;
+        if (hibernateButton != null)
+            hibernateButton.gameObject.SetActive(allCollected && index == total);
     }
 
     public void Previous() { if (reader != null) reader.ChangePage(-1); }
     public void Next() { if (reader != null) reader.ChangePage(1); }
     public void Close() { if (reader != null) reader.Close(); }
+    public void Hibernate() { if (reader != null) reader.EnterHibernation(); }
 }

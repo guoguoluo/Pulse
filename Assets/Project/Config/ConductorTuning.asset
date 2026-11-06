@@ -1,0 +1,182 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86fa91891663476aa1a11fdc4bf537ae, type: 3}
+  m_Name: ConductorTuning
+  m_EditorClassIdentifier: 
+  recordingBeatMarkersVerified: 0
+  previewBeatsPerMinute: 110
+  beatsPerBar: 4
+  previewFirstBeatOffsetSeconds: 0
+  firstBeatSeconds: []
+  judgementOffsetSeconds: 0
+  inputLatencyCompensationSeconds: 0.08
+  meteorCueLeadSeconds: 0.65
+  meteorStrikeSeconds: 0.46
+  meteorBeatPhase: 0.5
+  perfectWindowSeconds: 0.5
+  greatWindowSeconds: 1
+  goodWindowSeconds: 2
+  idleGraceSeconds: 12
+  maxAssistWindowSeconds: 2
+  pathSegments: 6
+  motionSmoothing: 12
+  beatMotionTriggerSpeed: 260
+  beatMotionResetSpeed: 95
+  beatMotionCooldownSeconds: 0.38
+  beatMotionMinimumPixels: 18
+  motionThresholdPixels: 1.5
+  motionFeedbackCooldownSeconds: 0.12
+  maximumLightScore: 100
+  motionPoints: 5
+  motionScoreCap: 10
+  motionAwardIntervalSeconds: 0.45
+  goodPoints: 10
+  greatPoints: 20
+  perfectPoints: 50
+  motionDurationSeconds: 3
+  goodDurationSeconds: 3
+  greatDurationSeconds: 5
+  perfectDurationSeconds: 5
+  fullScoreDarkness: 0
+  fullScoreBrightness: 3.2
+  lightScoreCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.6
+      value: 0.28
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  initialDarkness: 1
+  brightenSeconds: 0.55
+  brightenCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  glowPerLightStrength: 0.82
+  clusterLightPerStrength: 0.42
+  ambientGlowAtFullVisibility: 0.7
+  clusterLightPerVisibility: 0.8
+  musicMode: 0
+  recordingVolume: 1
+  scoreVolumeTransitionSeconds: 0.8
+  scoreVolumeCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  musicFadeInSeconds: 0.35
+  musicFadeOutSeconds: 0.55
+  gestureReferenceBeatInterval: 0.7
+  minimumBeatInterval: 0.25
+  minimumPlaybackSpeed: 0.5
+  maximumPlaybackSpeed: 1.6
+  gestureStopAfterSeconds: 1.2
+  speedSmoothing: 8
+  staircaseTriggerDistance: 50
+  staircaseMinimumRating: 2
+  staircaseRequiredHits: 3
+  fragmentPuzzles:
+  - chapter: 2
+    mode: 1
+    requireBeatPuzzle: 1
+    interactionDistance: 7
+    requiredHits: 3
+    minimumRating: 2
+  - chapter: 3
+    mode: 0
+    requireBeatPuzzle: 1
+    interactionDistance: 7
+    requiredHits: 2
+    minimumRating: 2
+  - chapter: 4
+    mode: 0
+    requireBeatPuzzle: 1
+    interactionDistance: 7.5
+    requiredHits: 3
+    minimumRating: 2
+  - chapter: 5
+    mode: 0
+    requireBeatPuzzle: 1
+    interactionDistance: 5
+    requiredHits: 4
+    minimumRating: 2
+  - chapter: 6
+    mode: 0
+    requireBeatPuzzle: 1
+    interactionDistance: 7.5
+    requiredHits: 4
+    minimumRating: 2

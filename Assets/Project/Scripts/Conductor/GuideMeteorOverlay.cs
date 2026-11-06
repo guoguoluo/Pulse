@@ -23,6 +23,15 @@ public class GuideMeteorOverlay : MonoBehaviour
     [SerializeField] private Color cueColor = new Color(1f, 1f, 1f, 1f);
     [Range(0f, 1f)] [SerializeField] private float idleScale = 0.9f;
     [Min(1f)] [SerializeField] private float cueScale = 1.7f;
+    [Header("Sky Meteors")]
+    [SerializeField] private ConductorDemo conductor;
+    [Range(0f, 1f)] [SerializeField] private float guideBrightnessAtFullLight = 0.18f;
+    [Range(0f, 1f)] [SerializeField] private float skyMeteorStartLight = 0.05f;
+    [Range(0f, 1f)] [SerializeField] private float skyMeteorFullLight = 0.55f;
+    [Range(0, 8)] [SerializeField] private int skyMeteorCount = 6;
+    [Range(0f, 1f)] [SerializeField] private float skyMeteorOpacity = 0.9f;
+    [Range(0.1f, 1f)] [SerializeField] private float skyMeteorSize = 0.78f;
+    [SerializeField] private Color skyMeteorColor = new Color(0.65f, 0.87f, 1f, 1f);
 
     private Texture2D whitePixel;
     private FirstBeatTimeline timeline;
@@ -36,10 +45,23 @@ public class GuideMeteorOverlay : MonoBehaviour
     private int trailCount;
     private int trailNext;
     private bool paused;
+    private bool journalHidden;
     private float pausedAt;
     private float playingPathSpeed = 1f;
+    private readonly Vector2[] skyStart = new Vector2[8];
+    private readonly Vector2[] skyEnd = new Vector2[8];
+    private readonly float[] skyDelay = new float[8];
 
     public Vector2 NormalizedPosition => new Vector2(centerX, centerY);
+    public void SetJournalHidden(bool hidden)
+    {
+        journalHidden = hidden;
+        if (hidden)
+        {
+            trailCount = 0;
+            trailNext = 0;
+        }
+    }
     public void SetPaused(bool value)
     {
         if (value == paused) return;
@@ -75,6 +97,13 @@ public class GuideMeteorOverlay : MonoBehaviour
             }
         whitePixel.Apply();
         timeline = FindFirstObjectByType<FirstBeatTimeline>();
+        if (conductor == null) conductor = FindFirstObjectByType<ConductorDemo>();
+        if (timeline != null && timeline.Tuning != null)
+        {
+            cueLeadSeconds = timeline.Tuning.meteorCueLeadSeconds;
+            streakSeconds = timeline.Tuning.meteorStrikeSeconds;
+            referenceBeatsPerMinute = timeline.Tuning.previewBeatsPerMinute;
+        }
         if (timeline != null) cueLeadSeconds = timeline.CueLeadSeconds;
         if (pathAnimator != null && pathAnimator.runtimeAnimatorController != null)
         {
@@ -92,7 +121,7 @@ public class GuideMeteorOverlay : MonoBehaviour
         if (timeline != null)
         {
             timeline.Cue += OnCue;
-            timeline.FirstBeat += OnFirstBeat;
+            timeline.MeteorStrike += OnMeteorStrike;
         }
     }
 
@@ -101,18 +130,24 @@ public class GuideMeteorOverlay : MonoBehaviour
         if (timeline != null)
         {
             timeline.Cue -= OnCue;
-            timeline.FirstBeat -= OnFirstBeat;
+            timeline.MeteorStrike -= OnMeteorStrike;
         }
     }
 
     private void OnCue(int id)
     {
+        if (timeline != null && timeline.Tuning != null) cueLeadSeconds = timeline.CueLeadSeconds;
         cueTime = Time.unscaledTime;
         PlayPath("Cue", cueLeadSeconds);
     }
 
-    private void OnFirstBeat(int id)
+    private void OnMeteorStrike(int id)
     {
+        if (timeline != null && timeline.Tuning != null)
+        {
+            streakSeconds = timeline.Tuning.meteorStrikeSeconds;
+            referenceBeatsPerMinute = timeline.Tuning.previewBeatsPerMinute;
+        }
         strikeTime = Time.unscaledTime;
         float referenceBar = 4f * 60f / referenceBeatsPerMinute;
         float currentBar = timeline != null ? timeline.GetBarSeconds(id) : referenceBar;
@@ -121,7 +156,25 @@ public class GuideMeteorOverlay : MonoBehaviour
             : streakSeconds;
         trailCount = 0;
         trailNext = 0;
+        SetSkyPaths(id);
         PlayPath("Strike", activeStreakSeconds);
+    }
+
+    private void SetSkyPaths(int id)
+    {
+        uint seed = (uint)(id + 1) * 747796405u;
+        for (int i = 0; i < skyStart.Length; i++)
+        {
+            seed = seed * 1664525u + 1013904223u;
+            float x = 0.1f + (seed & 0xffff) / 65535f * 0.75f;
+            seed = seed * 1664525u + 1013904223u;
+            float y = 0.08f + (seed & 0xffff) / 65535f * 0.3f;
+            seed = seed * 1664525u + 1013904223u;
+            float span = 0.09f + (seed & 0xffff) / 65535f * 0.12f;
+            skyStart[i] = new Vector2(x, y);
+            skyEnd[i] = new Vector2(Mathf.Clamp01(x + span), y + span * 0.5f);
+            skyDelay[i] = i * 0.085f;
+        }
     }
 
     private void PlayPath(string state, float duration)
@@ -148,7 +201,7 @@ public class GuideMeteorOverlay : MonoBehaviour
 
     private void OnGUI()
     {
-        if (whitePixel == null || Event.current.type != EventType.Repaint || timeline == null) return;
+        if (journalHidden || whitePixel == null || Event.current.type != EventType.Repaint || timeline == null) return;
         float now = paused ? pausedAt : Time.unscaledTime;
         float preBeat = Mathf.Clamp01((now - cueTime) / cueLeadSeconds);
         float streak = Mathf.Clamp01((now - strikeTime) / activeStreakSeconds);
@@ -158,7 +211,18 @@ public class GuideMeteorOverlay : MonoBehaviour
 
         float scale = moving ? cueScale : Mathf.Lerp(idleScale, cueScale, preBeat);
         Color tint = Color.Lerp(idleColor, cueColor, moving ? 1f - streak * 0.45f : preBeat);
-        float pixels = coreSizePixels * scale;
+        float light = 0f;
+        if (conductor != null)
+        {
+            var tuning = timeline.Tuning;
+            int maximum = tuning != null ? tuning.maximumLightScore : 100;
+            light = tuning != null ? tuning.LightFraction(conductor.LightScore, maximum)
+                : Mathf.Clamp01((float)conductor.LightScore / maximum);
+        }
+        float blend = Mathf.SmoothStep(0f, 1f, light);
+        float guideFade = Mathf.Lerp(1f, guideBrightnessAtFullLight, blend);
+        tint.a *= guideFade;
+        float pixels = coreSizePixels * scale * Mathf.Lerp(1f, 0.68f, blend);
         Vector3 path = pathAnimator != null ? pathAnimator.transform.localPosition : Vector3.zero;
         float x = Screen.width * (centerX + path.x * pathScreenScale.x);
         float y = Screen.height * (centerY - path.y * pathScreenScale.y);
@@ -169,6 +233,7 @@ public class GuideMeteorOverlay : MonoBehaviour
         }
 
         GUI.depth = -1000;
+        if (moving) DrawSkyMeteors(now, light, pixels);
         DrawDisc(x, y, pixels * 2.2f, new Color(tint.r, tint.g, tint.b, tint.a * 0.34f));
         DrawDisc(x, y, pixels, tint);
         if (moving)
@@ -196,6 +261,29 @@ public class GuideMeteorOverlay : MonoBehaviour
                         Mathf.Max(2f, pixels * (1f - tail) * 0.65f),
                         new Color(tint.r, tint.g, tint.b, tint.a * (1f - tail) * (1f - streak)));
                 }
+            }
+        }
+    }
+
+    private void DrawSkyMeteors(float now, float light, float guidePixels)
+    {
+        float visibility = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(
+            skyMeteorStartLight, Mathf.Max(skyMeteorStartLight + 0.01f, skyMeteorFullLight), light));
+        if (visibility <= 0f) return;
+        for (int i = 0; i < skyMeteorCount; i++)
+        {
+            float progress = (now - strikeTime) / activeStreakSeconds - skyDelay[i];
+            if (progress < 0f || progress >= 1f) continue;
+            float alpha = visibility * skyMeteorOpacity * Mathf.Sin(progress * Mathf.PI);
+            float size = guidePixels * skyMeteorSize;
+            for (int tail = 5; tail >= 0; tail--)
+            {
+                float t = tail / 6f;
+                Vector2 trail = Vector2.Lerp(skyStart[i], skyEnd[i], Mathf.Max(0f, progress - t * 0.3f));
+                DrawDisc(trail.x * Screen.width, trail.y * Screen.height,
+                    Mathf.Max(2f, size * (1f - t * 0.75f)),
+                    new Color(skyMeteorColor.r, skyMeteorColor.g, skyMeteorColor.b,
+                        alpha * (1f - t) * (tail == 0 ? 1f : 0.48f)));
             }
         }
     }

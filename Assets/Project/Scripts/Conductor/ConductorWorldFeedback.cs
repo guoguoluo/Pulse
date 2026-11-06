@@ -1,38 +1,20 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>Procedural placeholder art: one guide meteor, transient leaves/mycelium and permanent path.</summary>
+/// <summary>Procedural placeholder art with persistent path progress and score-driven light.</summary>
 public class ConductorWorldFeedback : MonoBehaviour
 {
+    [SerializeField] private ConductorTuning tuning;
     [Header("References")]
     [SerializeField] private Transform player;
     [SerializeField] private Light localLight;
 
-    [Header("Motion - Faint Response")]
-    [Min(0f)] [SerializeField] private float motionBrightness = 0.35f;
-    [Min(0f)] [SerializeField] private float motionHoldSeconds = 0.08f;
-
-    [Header("Off Beat")]
-    [Min(0f)] [SerializeField] private float offBeatBrightness = 0.8f;
-    [Min(0f)] [SerializeField] private float offBeatHoldSeconds = 0.35f;
-
-    [Header("Good")]
-    [Min(0f)] [SerializeField] private float goodBrightness = 1.5f;
-    [Min(0f)] [SerializeField] private float goodHoldSeconds = 0.65f;
-
-    [Header("Great")]
-    [Min(0f)] [SerializeField] private float greatBrightness = 2.3f;
-    [Min(0f)] [SerializeField] private float greatHoldSeconds = 0.9f;
-
-    [Header("Perfect")]
-    [Min(0f)] [SerializeField] private float perfectBrightness = 3.2f;
-    [Min(0f)] [SerializeField] private float perfectHoldSeconds = 1.2f;
+    [Header("Score Mapping Fallback")]
+    [Min(0f)] [SerializeField] private float fullScoreBrightness = 3.2f;
 
     [Header("Shared Light Envelope")]
     [Min(0.01f)] [SerializeField] private float brightenSeconds = 0.55f;
     [SerializeField] private AnimationCurve brightenCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
-    [Min(0.01f)] [SerializeField] private float fadeBackSeconds = 2.5f;
-    [Min(0f)] [SerializeField] private float restingBrightness = 0.03f;
 
     [Header("Visual Colors")]
     [SerializeField] private Color leafColor = new Color(0.68f, 1f, 0.77f);
@@ -42,11 +24,11 @@ public class ConductorWorldFeedback : MonoBehaviour
     private readonly System.Collections.Generic.List<Transform> leaves = new System.Collections.Generic.List<Transform>();
     private readonly System.Collections.Generic.List<Renderer> mycelia = new System.Collections.Generic.List<Renderer>();
     private Light footLight;
-    private float eventStartTime = -100f;
-    private float eventStartStrength;
-    private float eventTargetStrength;
-    private float eventHoldSeconds;
+    private float transitionStartTime;
+    private float transitionStartStrength;
+    private float targetStrength;
     private float currentStrength;
+    private int unlockedPathCount;
 
     public float CurrentStrength => currentStrength;
 
@@ -73,6 +55,7 @@ public class ConductorWorldFeedback : MonoBehaviour
 
     private void Awake()
     {
+        if (tuning == null) { var timeline = FindFirstObjectByType<FirstBeatTimeline>(); if (timeline != null) tuning = timeline.Tuning; }
         if (player == null) { var found = FindFirstObjectByType<PlayerController>(); if (found != null) player = found.transform; }
         if (player == null) return;
 
@@ -97,37 +80,38 @@ public class ConductorWorldFeedback : MonoBehaviour
         }
         footLight = player.gameObject.AddComponent<Light>();
         footLight.type = LightType.Point;
-        footLight.range = 5f;
+        footLight.range = 3.2f;
         footLight.color = myceliumColor;
         footLight.shadows = LightShadows.None;
-        footLight.intensity = restingBrightness;
+        footLight.intensity = 0f;
         if (localLight != null) localLight.enabled = false;
-    }
-
-    private float EvaluateStrength(float now)
-    {
-        float elapsed = now - eventStartTime;
-        if (elapsed < 0f) return 0f;
-        float envelope = ConductorLightEnvelope.Evaluate(elapsed, brightenSeconds,
-            eventHoldSeconds, fadeBackSeconds, brightenCurve);
-        if (elapsed < brightenSeconds)
-            return Mathf.Lerp(eventStartStrength, eventTargetStrength, envelope);
-        return eventTargetStrength * envelope;
     }
 
     private void Update()
     {
-        currentStrength = EvaluateStrength(Time.time);
-        if (footLight != null) footLight.intensity = restingBrightness + currentStrength;
+        float duration = tuning != null ? tuning.brightenSeconds : brightenSeconds;
+        float progress = Mathf.Clamp01((Time.time - transitionStartTime) / Mathf.Max(0.01f, duration));
+        AnimationCurve curve = tuning != null ? tuning.brightenCurve : brightenCurve;
+        currentStrength = Mathf.Lerp(transitionStartStrength, targetStrength,
+            curve != null ? curve.Evaluate(progress) : progress);
+        if (footLight != null) footLight.intensity = currentStrength * 0.22f;
+        float fullBrightness = tuning != null ? tuning.fullScoreBrightness : fullScoreBrightness;
+        float pathGlow = Mathf.Clamp01(currentStrength / Mathf.Max(0.01f, fullBrightness));
+        for (int i = 0; i < path.Count; i++)
+        {
+            float power = i < unlockedPathCount ? pathGlow : 0.13f * pathGlow;
+            path[i].material.color = new Color(myceliumColor.r * power,
+                myceliumColor.g * power, myceliumColor.b * power, 1f);
+        }
         for (int i = 0; i < mycelia.Count; i++)
         {
-            float power = 0.27f + currentStrength * 0.28f;
+            float power = currentStrength * 0.28f;
             mycelia[i].material.color = new Color(myceliumColor.r * power, myceliumColor.g * power, myceliumColor.b * power, 1f);
         }
         for (int i = 0; i < leaves.Count; i++)
         {
             leaves[i].localPosition += Vector3.right * (Mathf.Sin(Time.time * 2f + i) * 0.003f);
-            float power = 0.27f + currentStrength * 0.28f;
+            float power = currentStrength * 0.28f;
             leaves[i].GetComponent<Renderer>().material.color = new Color(leafColor.r * power, leafColor.g * power, leafColor.b * power, 1f);
         }
     }
@@ -136,31 +120,22 @@ public class ConductorWorldFeedback : MonoBehaviour
     public void StrikeMeteor() { }
     public void SetAssistance(float value) { }
 
-    public void ShowRating(ConductorGestureRating rating)
+    public void SetLightScore(int score, int maximumScore)
     {
-        float brightness = rating == ConductorGestureRating.Perfect ? perfectBrightness
-            : rating == ConductorGestureRating.Great ? greatBrightness
-            : rating == ConductorGestureRating.Good ? goodBrightness
-            : rating == ConductorGestureRating.OffBeat ? offBeatBrightness : motionBrightness;
-        float hold = rating == ConductorGestureRating.Perfect ? perfectHoldSeconds
-            : rating == ConductorGestureRating.Great ? greatHoldSeconds
-            : rating == ConductorGestureRating.Good ? goodHoldSeconds
-            : rating == ConductorGestureRating.OffBeat ? offBeatHoldSeconds : motionHoldSeconds;
-        float active = EvaluateStrength(Time.time);
-        if (rating == ConductorGestureRating.Motion && active > brightness)
-            return;
-        eventStartStrength = active;
-        eventTargetStrength = brightness;
-        eventHoldSeconds = hold;
-        eventStartTime = Time.time;
+        float nextTarget = (tuning != null ? tuning.LightFraction(score, maximumScore)
+            : Mathf.Clamp01((float)score / Mathf.Max(1, maximumScore))) *
+            (tuning != null ? tuning.fullScoreBrightness : fullScoreBrightness);
+        if (Mathf.Approximately(targetStrength, nextTarget)) return;
+        transitionStartStrength = currentStrength;
+        targetStrength = nextTarget;
+        transitionStartTime = Time.time;
     }
 
     public void AdvancePath(int progress, int total)
     {
-        int count = Mathf.CeilToInt((float)progress / Mathf.Max(1, total) * path.Count);
-        for (int i = 0; i < count; i++) path[i].material.color = new Color(myceliumColor.r, myceliumColor.g, myceliumColor.b, 1f);
-        if (progress >= total && localLight != null) localLight.enabled = true;
+        unlockedPathCount = Mathf.Max(unlockedPathCount,
+            Mathf.CeilToInt((float)progress / Mathf.Max(1, total) * path.Count));
     }
 
-    public void Complete() { if (localLight != null) localLight.enabled = true; }
+    public void Complete() { }
 }

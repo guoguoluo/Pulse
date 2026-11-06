@@ -9,9 +9,14 @@ public class JournalReader : MonoBehaviour
     [SerializeField] private JournalPageView pagePrefab;
     [SerializeField] private RectTransform pageParent;
     [SerializeField] private TextMeshProUGUI hintText;
+    [SerializeField] private JournalPickupPrompt pickupPromptPrefab;
+    [SerializeField] private RectTransform pickupPromptParent;
     [SerializeField] private PlayerController playerController;
+    [SerializeField] private GameMenuController gameMenu;
 
     private JournalPageView pageView;
+    private JournalPickupPrompt pickupPrompt;
+    private Transform pickupTarget;
     private int page;
     private JournalFragmentSite nearbySite;
     private bool firstFragmentNearby;
@@ -20,6 +25,8 @@ public class JournalReader : MonoBehaviour
     private float acquiredUntil;
     private string acquiredMessage;
     public bool IsOpen => pageView != null;
+    public bool WasOpenThisFrame => IsOpen || lastClosedFrame == Time.frameCount;
+    private int lastClosedFrame = -1;
     public bool InputEnabled { get; set; } = true;
     public void SetInputEnabled(bool enabled)
     {
@@ -32,11 +39,33 @@ public class JournalReader : MonoBehaviour
         if (archive == null) archive = FindFirstObjectByType<JournalArchive>();
         if (textConfig == null) textConfig = Resources.Load<TextConfig>("TextConfig");
         if (playerController == null) playerController = FindFirstObjectByType<PlayerController>();
+        if (gameMenu == null) gameMenu = FindFirstObjectByType<GameMenuController>();
         RefreshHint();
+    }
+
+    public void SetPickupTarget(Transform target, bool available)
+    {
+        if (pickupPromptPrefab == null) return;
+        if (target == null)
+        {
+            ClearPickupTarget();
+            return;
+        }
+        if (pickupPrompt == null && target != null)
+        {
+            RectTransform parent = pickupPromptParent != null ? pickupPromptParent : transform as RectTransform;
+            pickupPrompt = Instantiate(pickupPromptPrefab, parent, false);
+        }
+        pickupTarget = target;
+        if (pickupPrompt == null) return;
+        pickupPrompt.SetTarget(pickupTarget);
+        pickupPrompt.SetVisible(InputEnabled && !IsOpen && pickupTarget != null);
     }
 
     private void Update()
     {
+        if (pickupTarget != null && (!pickupTarget.gameObject.activeInHierarchy || !InputEnabled))
+            ClearPickupTarget();
         if (acquiredUntil > 0f && Time.unscaledTime >= acquiredUntil)
         {
             acquiredUntil = 0f;
@@ -67,17 +96,21 @@ public class JournalReader : MonoBehaviour
         }
         pageView.gameObject.SetActive(true);
         if (playerController != null) playerController.SetJournalOpen(true);
+        if (gameMenu != null) gameMenu.SetJournalState(true);
         Refresh();
     }
 
     public void Close()
     {
+        if (pageView == null) return;
+        lastClosedFrame = Time.frameCount;
         if (pageView != null)
         {
             Destroy(pageView.gameObject);
             pageView = null;
         }
         if (playerController != null) playerController.SetJournalOpen(false);
+        if (gameMenu != null) gameMenu.SetJournalState(false);
         RefreshHint();
     }
 
@@ -88,6 +121,15 @@ public class JournalReader : MonoBehaviour
         Refresh();
     }
 
+    public void EnterHibernation()
+    {
+        if (!IsOpen || archive == null || archive.TotalCount == 0 ||
+            archive.UnlockedCount != archive.TotalCount || page != archive.TotalCount - 1)
+            return;
+        Close();
+        if (gameMenu != null) gameMenu.EnterHibernation();
+    }
+
     public void ShowAcquired()
     {
         if (archive == null || archive.UnlockedCount == 0) return;
@@ -95,6 +137,7 @@ public class JournalReader : MonoBehaviour
         acquiredMessage = string.Format(Text("journal.acquired"), entry != null ? entry.title : "");
         acquiredUntil = Time.unscaledTime + acquiredNoticeSeconds;
         pickupAvailable = false;
+        ClearPickupTarget();
         nearbySite = null;
         RefreshHint();
     }
@@ -117,6 +160,8 @@ public void SetNearbySite(JournalFragmentSite site)
     
 public void SetPickupAvailable(bool available)
     {
+        if (!available && pickupTarget != null) return;
+        if (pickupAvailable == available) return;
         pickupAvailable = available;
         RefreshHint();
     }
@@ -125,12 +170,16 @@ public void SetPickupAvailable(bool available)
     {
         var entry = archive.GetChapter(page);
         if (entry == null) return;
-        if (pageView != null) pageView.SetEntry(entry.title, entry.body, page + 1, archive.TotalCount);
+        if (pageView != null)
+            pageView.SetEntry(entry.title, entry.body, page + 1, archive.TotalCount,
+                archive.UnlockedCount == archive.TotalCount);
         RefreshHint();
     }
 
     private void RefreshHint()
     {
+        if (pickupPrompt != null)
+            pickupPrompt.SetVisible(InputEnabled && !IsOpen && pickupTarget != null);
         if (hintText == null) return;
         if (!InputEnabled)
         {
@@ -138,9 +187,20 @@ public void SetPickupAvailable(bool available)
             return;
         }
         bool acquired = Time.unscaledTime < acquiredUntil;
-        hintText.gameObject.SetActive(!IsOpen && (acquired || pickupAvailable || firstFragmentNearby || nearbySite != null || (archive != null && archive.UnlockedCount > 0)));
+        bool worldPickupVisible = pickupPrompt != null && pickupTarget != null;
+        hintText.gameObject.SetActive(!IsOpen && (acquired || (pickupAvailable && !worldPickupVisible) ||
+            firstFragmentNearby || nearbySite != null || (archive != null && archive.UnlockedCount > 0)));
         hintText.text = acquired ? acquiredMessage : pickupAvailable ? Text("journal.pickup") :
             firstFragmentNearby || nearbySite != null ? Text("journal.nearby") : Text("journal.open");
+    }
+
+    public void ClearPickupTarget(Transform target = null)
+    {
+        if (target != null && pickupTarget != target) return;
+        pickupTarget = null;
+        pickupAvailable = false;
+        if (pickupPrompt != null) pickupPrompt.SetVisible(false);
+        RefreshHint();
     }
 
     private string Text(string key) { return textConfig != null ? textConfig.Get(key) : key; }

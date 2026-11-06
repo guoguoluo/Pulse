@@ -34,9 +34,9 @@ Shader "PulseMachine/SoftToonGround"
         half4 LightingSoftGround(SurfaceOutput s, half3 lightDir, half atten)
         {
             half ndl = saturate(dot(s.Normal, lightDir));
-            half lit = ndl * atten;
-            half band = smoothstep(_LightCutoff - _LightSmoothness, _LightCutoff + _LightSmoothness, lit);
-            half3 shade = lerp(_ShadowColor.rgb, _LightColor0.rgb * _LightStrength, band);
+            half band = smoothstep(_LightCutoff - _LightSmoothness,
+                _LightCutoff + _LightSmoothness, ndl);
+            half3 shade = lerp(_ShadowColor.rgb, _LightColor0.rgb * _LightStrength, band) * atten;
             half4 result;
             result.rgb = s.Albedo * (shade + UNITY_LIGHTMODEL_AMBIENT.rgb * _AmbientStrength);
             result.a = s.Alpha;

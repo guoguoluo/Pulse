@@ -9,6 +9,7 @@ public class RisingStaircase : MonoBehaviour
     [Header("Animator")]
     [SerializeField] private Animator staircaseAnimator;
     [SerializeField] private string raiseTrigger = "Raise";
+    [SerializeField] private string raisedState = "Staircase_Raise";
     [SerializeField] private bool invokeRaisedImmediately = true;
 
     [Header("Feedback")]
@@ -68,5 +69,16 @@ private bool raised;
     public void NotifyRaised()
     {
         onRaised?.Invoke();
+    }
+
+    public void RestoreRaised()
+    {
+        raised = true;
+        if (staircaseAnimator == null) staircaseAnimator = GetComponent<Animator>();
+        if (staircaseAnimator != null && !string.IsNullOrWhiteSpace(raisedState))
+        {
+            staircaseAnimator.Play(raisedState, 0, 1f);
+            staircaseAnimator.Update(0f);
+        }
     }
 }

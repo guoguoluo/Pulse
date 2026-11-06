@@ -7,6 +7,9 @@ public class GestureDrivenMusic : MonoBehaviour
 {
     [SerializeField] private DownstrokeInput input;
     [SerializeField] private AudioSource recordingSource;
+    [SerializeField] private FirstBeatTimeline timeline;
+    [SerializeField] private ConductorTuning tuning;
+    [SerializeField] private ConductorDemo conductor;
     [Tooltip("Downstrokes this far apart play the recording at normal speed.")]
     [Min(0.1f)] [SerializeField] private float referenceBeatInterval = 0.7f;
     [Tooltip("Minimum interval used when estimating tempo; avoids extreme speed from accidental double strokes.")]
@@ -30,15 +33,25 @@ public class GestureDrivenMusic : MonoBehaviour
     private float targetSpeed = 1f;
     private bool started;
     private bool paused = true;
+    private bool menuPaused;
+    private int lastVolumeScore = -1;
+    private float volumeTransitionStart;
+    private float volumeAtTransitionStart;
+    private float volumeAtTransitionEnd;
 
-    public float PlaybackSpeed => paused ? 0f : recordingSource.pitch;
+    private bool TimelineMode => tuning != null && tuning.musicMode == ConductorTuning.MusicMode.Timeline;
+    public float PlaybackSpeed => TimelineMode ? (recordingSource != null && recordingSource.isPlaying ? 1f : 0f)
+        : paused ? 0f : recordingSource.pitch;
     public bool IsPaused => paused;
 
 private void Awake()
     {
         if (recordingSource == null) recordingSource = GetComponent<AudioSource>();
+        if (timeline == null) timeline = GetComponent<FirstBeatTimeline>();
+        if (tuning == null && timeline != null) tuning = timeline.Tuning;
+        if (conductor == null) conductor = FindFirstObjectByType<ConductorDemo>();
         if (input == null) input = FindFirstObjectByType<DownstrokeInput>();
-        playingVolume = recordingSource.volume;
+        playingVolume = tuning != null ? tuning.recordingVolume : recordingSource.volume;
         recordingSource.playOnAwake = false;
     }
 
@@ -50,6 +63,7 @@ private void OnEnable()
 
 private void Start()
     {
+        if (TimelineMode || menuPaused) return;
         recordingSource.Stop();
         recordingSource.pitch = 1f;
         recordingSource.volume = 0f;
@@ -59,12 +73,12 @@ private void Start()
 private void OnDisable()
     {
         if (input != null) input.Downstroke -= OnDownstroke;
-        if (recordingSource != null)
+        if (!TimelineMode && recordingSource != null)
         {
             recordingSource.Pause();
             recordingSource.volume = playingVolume;
         }
-        paused = true;
+        if (!TimelineMode) paused = true;
         fadingOut = false;
     }
 
@@ -76,12 +90,34 @@ private void OnDisable()
 
 private void Update()
     {
+        if (TimelineMode)
+        {
+            if (recordingSource == null || timeline == null || timeline.IsPaused || menuPaused) return;
+            int score = conductor != null ? conductor.LightScore : 0;
+            if (score != lastVolumeScore)
+            {
+                volumeAtTransitionStart = recordingSource.volume;
+                volumeAtTransitionEnd = tuning.recordingVolume *
+                    Mathf.Clamp01((float)score / Mathf.Max(1, tuning.maximumLightScore));
+                volumeTransitionStart = Time.time;
+                lastVolumeScore = score;
+            }
+            float progress = Mathf.Clamp01((Time.time - volumeTransitionStart) /
+                Mathf.Max(0.01f, tuning.scoreVolumeTransitionSeconds));
+            float shaped = tuning.scoreVolumeCurve != null
+                ? Mathf.Clamp01(tuning.scoreVolumeCurve.Evaluate(progress)) : progress;
+            recordingSource.volume = Mathf.Lerp(volumeAtTransitionStart, volumeAtTransitionEnd, shaped);
+            return;
+        }
         if (paused) return;
-        if (!fadingOut && AudioSettings.dspTime - lastStrokeTime >= stopAfterSeconds)
+        float stopAfter = tuning != null ? tuning.gestureStopAfterSeconds : stopAfterSeconds;
+        if (!fadingOut && AudioSettings.dspTime - lastStrokeTime >= stopAfter)
             Pause();
 
         float targetVolume = fadingOut ? 0f : playingVolume;
-        float seconds = fadingOut ? fadeOutSeconds : fadeInSeconds;
+        float seconds = fadingOut
+            ? (tuning != null ? tuning.musicFadeOutSeconds : fadeOutSeconds)
+            : (tuning != null ? tuning.musicFadeInSeconds : fadeInSeconds);
         recordingSource.volume = seconds <= 0f ? targetVolume
             : Mathf.MoveTowards(recordingSource.volume, targetVolume,
                 playingVolume * Time.unscaledDeltaTime / seconds);
@@ -95,16 +131,21 @@ private void Update()
         }
         if (!fadingOut)
             recordingSource.pitch = Mathf.MoveTowards(recordingSource.pitch, targetSpeed,
-                speedSmoothing * Time.unscaledDeltaTime);
+                (tuning != null ? tuning.speedSmoothing : speedSmoothing) * Time.unscaledDeltaTime);
     }
 
 private void OnDownstroke(double dspTime)
     {
-        if (input == null || recordingSource.clip == null) return;
+        if (TimelineMode || input == null || recordingSource.clip == null || menuPaused) return;
+        playingVolume = tuning != null ? tuning.recordingVolume : playingVolume;
+        float stopAfter = tuning != null ? tuning.gestureStopAfterSeconds : stopAfterSeconds;
         double interval = dspTime - lastStrokeTime;
-        if (interval > 0d && interval <= stopAfterSeconds)
-            targetSpeed = Mathf.Clamp(referenceBeatInterval / Mathf.Max((float)interval, minimumBeatInterval),
-                minimumPlaybackSpeed, maximumPlaybackSpeed);
+        if (interval > 0d && interval <= stopAfter)
+            targetSpeed = Mathf.Clamp(
+                (tuning != null ? tuning.gestureReferenceBeatInterval : referenceBeatInterval) /
+                Mathf.Max((float)interval, tuning != null ? tuning.minimumBeatInterval : minimumBeatInterval),
+                tuning != null ? tuning.minimumPlaybackSpeed : minimumPlaybackSpeed,
+                tuning != null ? tuning.maximumPlaybackSpeed : maximumPlaybackSpeed);
         else
             targetSpeed = 1f;
         lastStrokeTime = dspTime;
@@ -132,7 +173,7 @@ private void Pause()
         if (paused || fadingOut) return;
         fadingOut = true;
         lastStrokeTime = double.NegativeInfinity;
-        if (fadeOutSeconds <= 0f)
+        if ((tuning != null ? tuning.musicFadeOutSeconds : fadeOutSeconds) <= 0f)
         {
             recordingSource.volume = 0f;
             recordingSource.Pause();
@@ -140,4 +181,6 @@ private void Pause()
             fadingOut = false;
         }
     }
+
+    public void SetMenuPaused(bool value) { menuPaused = value; }
 }

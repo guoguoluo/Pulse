@@ -9,20 +9,28 @@ public class GameMenuController : MonoBehaviour
     [SerializeField] private GameObject mainMenuPrefab;
     [SerializeField] private GameObject pauseMenuPrefab;
     [SerializeField] private GameObject manualPrefab;
+    [SerializeField] private GameObject creditsPrefab;
+    [SerializeField] private AudioClip creditsMusic;
+    [Range(0f, 1f)] [SerializeField] private float creditsMusicVolume = 0.7f;
     [SerializeField] private JournalArchive archive;
     [SerializeField] private JournalReader journalReader;
     [SerializeField] private PlayerController player;
     [SerializeField] private DownstrokeInput downstrokeInput;
+    [SerializeField] private ConductorDemo conductor;
     [SerializeField] private FirstBeatTimeline timeline;
     [SerializeField] private GestureDrivenMusic gestureMusic;
     [SerializeField] private GuideMeteorOverlay guideMeteor;
     [SerializeField] private AudioSource[] gameplayAudio;
 
     private GameObject currentPage;
+    private AudioSource creditsSource;
+    private bool ending;
     private bool playing;
     private float previousTimeScale = 1f;
     private readonly System.Collections.Generic.List<AudioSource> pausedAudio = new System.Collections.Generic.List<AudioSource>();
     private float lastEscapeTime = -10f;
+    public bool IsGameplayActive => playing && currentPage == null;
+    public bool IsMenuOpen => currentPage != null;
 
     private void Awake()
     {
@@ -30,6 +38,7 @@ public class GameMenuController : MonoBehaviour
         if (journalReader == null) journalReader = FindFirstObjectByType<JournalReader>();
         if (player == null) player = FindFirstObjectByType<PlayerController>();
         if (downstrokeInput == null) downstrokeInput = FindFirstObjectByType<DownstrokeInput>();
+        if (conductor == null) conductor = FindFirstObjectByType<ConductorDemo>();
         if (timeline == null) timeline = FindFirstObjectByType<FirstBeatTimeline>();
         if (gestureMusic == null) gestureMusic = FindFirstObjectByType<GestureDrivenMusic>();
         if (guideMeteor == null) guideMeteor = FindFirstObjectByType<GuideMeteorOverlay>();
@@ -52,9 +61,14 @@ public class GameMenuController : MonoBehaviour
         if (Keyboard.current == null || !Keyboard.current.escapeKey.wasPressedThisFrame) return;
         if (Time.unscaledTime - lastEscapeTime < 0.15f) return;
         lastEscapeTime = Time.unscaledTime;
-        if (journalReader != null && journalReader.IsOpen) return;
+        if (journalReader != null && journalReader.WasOpenThisFrame)
+        {
+            if (journalReader.IsOpen) journalReader.Close();
+            return;
+        }
         if (currentPage != null)
         {
+            if (ending) return;
             if (currentPage.name.StartsWith("Manual")) CloseManual();
             else if (playing) Resume();
         }
@@ -74,6 +88,7 @@ public class GameMenuController : MonoBehaviour
         Bind("MainMenu", ReturnToMainMenu);
         Bind("Back", CloseManual);
         Bind("Quit", Quit);
+        Bind("CreditsMainMenu", ReturnToMainMenu);
         var continueButton = FindButton("Continue");
         if (continueButton != null) continueButton.interactable = archive != null && archive.HasSavedProgress;
     }
@@ -96,9 +111,14 @@ public class GameMenuController : MonoBehaviour
     {
         if (player != null) player.SetJournalOpen(menuOpen);
         if (journalReader != null) journalReader.SetInputEnabled(!menuOpen);
-        if (downstrokeInput != null) downstrokeInput.enabled = !menuOpen;
+        if (conductor != null) conductor.SetScoringPaused(menuOpen);
         if (timeline != null) timeline.SetPaused(menuOpen);
-        if (gestureMusic != null) gestureMusic.enabled = !menuOpen;
+        if (downstrokeInput != null) downstrokeInput.SetGameplayInputEnabled(!menuOpen);
+        if (gestureMusic != null)
+        {
+            gestureMusic.SetMenuPaused(menuOpen);
+            gestureMusic.enabled = !menuOpen;
+        }
         if (guideMeteor != null) guideMeteor.SetPaused(menuOpen);
         Cursor.lockState = menuOpen ? CursorLockMode.None : CursorLockMode.Locked;
         Cursor.visible = menuOpen;
@@ -120,8 +140,29 @@ public class GameMenuController : MonoBehaviour
         }
     }
 
+    public void SetJournalState(bool open)
+    {
+        if (!playing || IsMenuOpen) return;
+        if (conductor != null) conductor.SetScoringPaused(open);
+        if (timeline != null) timeline.SetPaused(open);
+        if (downstrokeInput != null) downstrokeInput.SetGameplayInputEnabled(!open);
+        if (guideMeteor != null) guideMeteor.SetJournalHidden(open);
+        if (timeline != null && timeline.Tuning != null &&
+            timeline.Tuning.musicMode == ConductorTuning.MusicMode.Timeline)
+        {
+            var recording = timeline.RecordingSource;
+            if (recording != null)
+            {
+                if (open) recording.Pause();
+                else recording.UnPause();
+            }
+        }
+    }
+
     public void ShowMainMenu()
     {
+        ending = false;
+        StopCreditsMusic();
         playing = false;
         Time.timeScale = 0f;
         SetMenuState(true);
@@ -149,6 +190,7 @@ public class GameMenuController : MonoBehaviour
 
     public void BeginGameplay()
     {
+        ending = false;
         playing = true;
         Time.timeScale = 1f;
         if (currentPage != null) Destroy(currentPage);
@@ -177,6 +219,8 @@ public class GameMenuController : MonoBehaviour
 
     public void ReturnToMainMenu()
     {
+        StopCreditsMusic();
+        ending = false;
         Time.timeScale = 1f;
         StartGameAfterReload.pending = false;
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
@@ -191,6 +235,33 @@ public class GameMenuController : MonoBehaviour
     public void CloseManual()
     {
         Show(playing ? pauseMenuPrefab : mainMenuPrefab);
+    }
+
+    public void EnterHibernation()
+    {
+        if (!playing || ending || archive == null || archive.TotalCount == 0 ||
+            archive.UnlockedCount != archive.TotalCount || creditsPrefab == null)
+            return;
+        ending = true;
+        playing = false;
+        Time.timeScale = 0f;
+        SetMenuState(true);
+        Show(creditsPrefab);
+        if (creditsMusic != null)
+        {
+            if (creditsSource == null) creditsSource = gameObject.AddComponent<AudioSource>();
+            creditsSource.playOnAwake = false;
+            creditsSource.loop = true;
+            creditsSource.ignoreListenerPause = true;
+            creditsSource.clip = creditsMusic;
+            creditsSource.volume = creditsMusicVolume;
+            creditsSource.Play();
+        }
+    }
+
+    private void StopCreditsMusic()
+    {
+        if (creditsSource != null) creditsSource.Stop();
     }
 
     public void Quit() { Application.Quit(); }

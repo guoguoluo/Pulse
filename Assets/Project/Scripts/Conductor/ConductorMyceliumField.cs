@@ -6,13 +6,13 @@ public class ConductorMyceliumField : MonoBehaviour
 {
     [SerializeField] private ConductorWorldFeedback feedback;
     [SerializeField] private ConductorBlackout blackout;
+    [SerializeField] private ConductorTuning tuning;
     [SerializeField] private Transform player;
     [SerializeField] private Renderer[] glowRenderers;
     [SerializeField] private Light[] clusterLights;
     [Header("Response")]
     [Min(0f)] [SerializeField] private float glowPerLightStrength = 0.48f;
     [Min(0f)] [SerializeField] private float glowRange = 11f;
-    [Min(0f)] [SerializeField] private float idleGlow = 0f;
     [Min(0f)] [SerializeField] private float clusterLightPerStrength = 0.25f;
     [Range(0f, 1f)] [SerializeField] private float ambientGlowAtFullVisibility = 0.7f;
     [Min(0f)] [SerializeField] private float clusterLightPerVisibility = 0.8f;
@@ -26,6 +26,7 @@ public class ConductorMyceliumField : MonoBehaviour
     {
         if (feedback == null) feedback = FindFirstObjectByType<ConductorWorldFeedback>();
         if (blackout == null) blackout = FindFirstObjectByType<ConductorBlackout>();
+        if (tuning == null) { var timeline = FindFirstObjectByType<FirstBeatTimeline>(); if (timeline != null) tuning = timeline.Tuning; }
         if (player == null)
         {
             var controller = FindFirstObjectByType<PlayerController>();
@@ -45,6 +46,14 @@ public class ConductorMyceliumField : MonoBehaviour
 
     private void LateUpdate()
     {
+        if (properties == null) properties = new MaterialPropertyBlock();
+        if (glowRenderers == null || positions.Count != glowRenderers.Length)
+        {
+            positions.Clear();
+            if (glowRenderers == null) return;
+            foreach (var renderer in glowRenderers)
+                positions.Add(renderer != null ? renderer.bounds.center : Vector3.zero);
+        }
         float strength = feedback != null ? feedback.CurrentStrength : 0f;
         float visibility = blackout != null ? blackout.CurrentVisibility : 0f;
         for (int i = 0; i < glowRenderers.Length; i++)
@@ -54,8 +63,9 @@ public class ConductorMyceliumField : MonoBehaviour
             float distance = player != null ? Vector3.Distance(player.position, positions[i]) : 0f;
             float proximity = glowRange > 0f ? 1f - Mathf.SmoothStep(0f, 1f, distance / glowRange) : 1f;
             renderer.GetPropertyBlock(properties);
-            properties.SetFloat("_Glow", idleGlow +
-                (strength * glowPerLightStrength + visibility * ambientGlowAtFullVisibility) * proximity);
+            properties.SetFloat("_Glow",
+                (strength * (tuning != null ? tuning.glowPerLightStrength : glowPerLightStrength) +
+                visibility * (tuning != null ? tuning.ambientGlowAtFullVisibility : ambientGlowAtFullVisibility)) * proximity);
             renderer.SetPropertyBlock(properties);
         }
         if (clusterLights == null) return;
@@ -64,8 +74,8 @@ public class ConductorMyceliumField : MonoBehaviour
             if (light == null) continue;
             float distance = player != null ? Vector3.Distance(player.position, light.transform.position) : 0f;
             float proximity = glowRange > 0f ? 1f - Mathf.SmoothStep(0f, 1f, distance / glowRange) : 1f;
-            light.intensity = (strength * clusterLightPerStrength +
-                visibility * clusterLightPerVisibility) * proximity * 0.35f;
+            light.intensity = (strength * (tuning != null ? tuning.clusterLightPerStrength : clusterLightPerStrength) +
+                visibility * (tuning != null ? tuning.clusterLightPerVisibility : clusterLightPerVisibility)) * proximity * 0.35f;
         }
     }
 }
